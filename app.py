@@ -1,6 +1,7 @@
 import dearpygui.dearpygui as dpg
 import meshtastic
 import meshtastic.serial_interface
+import meshtastic.tcp_interface
 from pubsub import pub
 import threading
 import queue
@@ -60,9 +61,10 @@ class MeshtasticTelemetryApp:
     def start_data_collection(self):
         api_key = dpg.get_value("api_key_input").strip()
         endpoint = dpg.get_value("endpoint_input").strip()
+        device_ipaddr = dpg.get_value("device_ipaddr_input").strip()
         com_port = dpg.get_value("com_port_combo")
 
-        if not (api_key and endpoint and com_port):
+        if not (api_key and endpoint and (com_port or device_ipaddr)):
             self.log("ERROR: API Key, Endpoint, and COM Port are required.")
             return
 
@@ -84,6 +86,7 @@ class MeshtasticTelemetryApp:
         self.endpoint = endpoint
         self.pushing_rate = int(dpg.get_value("interval_input"))
         self.request_delay = float(dpg.get_value("delay_input"))
+        self.device_ipaddr = device_ipaddr
         self.com_port = com_port
 
         self.is_running = True
@@ -93,10 +96,16 @@ class MeshtasticTelemetryApp:
         self.log("Starting data collection...")
 
         try:
-            self.log(f"Connecting to Meshtastic device on {self.com_port}...")
-            self.interface = meshtastic.serial_interface.SerialInterface(
-                devPath=self.com_port
-            )
+            if device_ipaddr:
+                self.log(f"Connecting to Meshtastic device on {self.device_ipaddr}...")
+                self.interface = meshtastic.tcp_interface.TCPInterface(
+                    hostname=self.device_ipaddr
+                )
+            else:
+                self.log(f"Connecting to Meshtastic device on {self.com_port}...")
+                self.interface = meshtastic.serial_interface.SerialInterface(
+                    devPath=self.com_port
+                )
             self.log("Connected to Meshtastic device successfully.")
             pub.subscribe(self.on_receive, "meshtastic.receive")
             self.log("Subscribed to Meshtastic messages.")
@@ -442,6 +451,9 @@ def create_gui(app_instance):
         with dpg.collapsing_header(label="Connection Settings", default_open=True):
             dpg.add_input_text(label="API Key", tag="api_key_input", width=300)
             dpg.add_input_text(label="Endpoint", tag="endpoint_input", width=300)
+            dpg.add_input_text(
+                label="Device IP Addr", tag="device_ipaddr_input", width=300
+            )
             with dpg.group(horizontal=True):
                 dpg.add_combo(
                     items=get_available_ports(),
@@ -529,8 +541,6 @@ def main():
             new_log = current_log + "\n".join(log_buffer) + "\n"
             dpg.set_value("log_text", new_log)
             log_buffer.clear()
-
-
 
         dpg.render_dearpygui_frame()
 
