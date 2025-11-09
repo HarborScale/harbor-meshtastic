@@ -2,12 +2,12 @@
 
 The Meshtastic Integration script allows you to connect your Meshtastic device to Telemetry Harbor effortlessly. By running this Python code, you can send telemetry data from your Meshtastic device to your Telemetry Harbor account, where it can be visualized using Grafana.
 
-![Image](https://i.imgur.com/4QWhKBj.png)
+<img width="602" height="824" alt="Screenshot 2568-11-08 at 21 05 41" src="https://github.com/user-attachments/assets/787a5fbd-0434-423d-84c2-afd87b3f2f7b" />
 
 
 ## Features  
 
-- **Seamless Device Connection**: Easily connect your Meshtastic device via a selected COM port.  
+- **Seamless Device Connection**: Easily connect your Meshtastic device via a selected COM port or TCP Connection.  
 - **Batch Endpoint Support**: Send data directly to Telemetry Harbor's batch ingestion endpoint.  
 - **API Key Authentication**: Ensure secure communication using your unique API key.  
 - **Real-Time Data Push**: Continuously stream telemetry data for live monitoring and analysis.  
@@ -39,7 +39,9 @@ The Meshtastic Integration script allows you to connect your Meshtastic device t
    - Execute the script and provide the required information:  
      - **API Normal (NOT BATCH) Endpoint**: Obtain this from your Telemetry Harbor account.  
      - **API Key**: Your unique key for secure communication.  
-     - **COM Port**: The port your Meshtastic device is connected to.  
+     - **Device IP Addr (optional)**: The IP address of your Meshtastic device for TCP connections.
+     - **COM Port (optional)**: The serial port your Meshtastic device is connected to.
+     - If both are provided, TCP (IP Addr) takes priority.
 
 
 ---
