@@ -3,6 +3,7 @@
 
 The Meshtastic Integration script allows you to connect your Meshtastic device to Harbor Scale effortlessly. By running this Python code, you can send telemetry data from your Meshtastic device to your Harbor Scale account, where it can be visualized using Grafana.
 
+![Image](https://i.imgur.com/DLqunXx.jpeg)
 ![Image](https://i.imgur.com/4QWhKBj.png)
 
 
