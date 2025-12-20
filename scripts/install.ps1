@@ -1,3 +1,4 @@
+# Requires Run as Administrator
 param (
     [string]$HarborID,
     [string]$ApiKey,
@@ -11,6 +12,12 @@ $InstallDir = "C:\HarborLighthouse\Plugins"
 $BinaryName = "mesh_engine.exe"
 $Asset = "mesh_engine_windows_amd64.exe"
 $ExePath = Join-Path $InstallDir $BinaryName
+
+# Check Admin (Required for Machine PATH)
+if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]"Administrator")) {
+    Write-Warning "❌ You must run this script as Administrator to update System PATH."
+    exit 1
+}
 
 # --- 🗑️ UNINSTALL MODE ---
 if ($Uninstall) {
@@ -31,33 +38,19 @@ if ($Uninstall) {
     return
 }
 
-# 1. CHECK LIGHTHOUSE
-if (-not (Get-Command "lighthouse" -ErrorAction SilentlyContinue)) {
-    Write-Host "❌ Error: Lighthouse is not installed." -ForegroundColor Red
-    Write-Host "👉 Please run: iwr get.harborscale.com | iex"
-    exit 1
-}
+# 1. SETUP
+if (-not (Test-Path $InstallDir)) { New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null }
 
-# 2. CREATE DIRECTORY
-if (-not (Test-Path $InstallDir)) {
-    Write-Host "📂 Creating safe install directory: $InstallDir"
-    New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
-}
-
-# 3. DOWNLOAD
+# 2. DOWNLOAD
 $DownloadUrl = "https://github.com/$Repo/releases/download/$Version/$Asset"
-$OutputPath = Join-Path $InstallDir $BinaryName
-
-Write-Host "⬇️  Downloading Meshtastic Engine..."
+Write-Host "⬇️  Downloading..."
 try {
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    Invoke-WebRequest -Uri $DownloadUrl -OutFile $OutputPath
+    Invoke-WebRequest -Uri $DownloadUrl -OutFile $ExePath
 } catch {
-    Write-Host "❌ Download Failed: $_" -ForegroundColor Red
-    exit 1
+    Write-Host "❌ Download Failed: $_" -ForegroundColor Red; exit 1
 }
-
-Unblock-File -Path $OutputPath
+Unblock-File -Path $ExePath
 
 # 3. ADD TO SYSTEM PATH (Crucial for Service Visibility)
 $CurrentPath = [Environment]::GetEnvironmentVariable("Path", "Machine")
@@ -68,21 +61,9 @@ if ($CurrentPath -notlike "*$InstallDir*") {
     $Env:Path += ";$InstallDir" # Update current session too
 }
 
-# 4. REGISTER WITH LIGHTHOUSE
-# Note: We now register just the binary name, not full path, because it's in the PATH
-if ([string]::IsNullOrEmpty($HarborID) -or [string]::IsNullOrEmpty($ApiKey)) {
-    Write-Host "✅ Installation Complete." -ForegroundColor Green
-    Write-Host "👇 Run this command to start streaming:" -ForegroundColor Cyan
-    Write-Host ""
-    Write-Host "lighthouse --add `"
-    Write-Host "  --name `"Mesh-Gateway`" `"
-    Write-Host "  --source exec `"
-    Write-Host "  --param command=`"$BinaryName --ttl 3600`" `" 
-    Write-Host "  --param timeout_ms=30000 `"
-    Write-Host "  --harbor-id `"YOUR_ID`" `"
-    Write-Host "  --key `"YOUR_KEY`""
-} else {
-    Write-Host "🚢 Registering with Lighthouse..."
+# 4. REGISTER & RESTART
+if ($HarborID -and $ApiKey) {
+    Write-Host "🚢 Registering..."
     lighthouse --add `
       --name "Mesh-Gateway" `
       --source exec `
@@ -91,5 +72,10 @@ if ([string]::IsNullOrEmpty($HarborID) -or [string]::IsNullOrEmpty($ApiKey)) {
       --harbor-id "$HarborID" `
       --key "$ApiKey"
 
-    Write-Host "✅ Success! Meshtastic Engine installed." -ForegroundColor Green
+    Write-Host "♻️  Restarting Lighthouse Service (to apply PATH)..." -ForegroundColor Yellow
+    Restart-Service "harbor-lighthouse"
+    
+    Write-Host "✅ Success! Service is running." -ForegroundColor Green
+} else {
+    Write-Host "✅ Installed. Run 'lighthouse --add ...' to finish." -ForegroundColor Green
 }
