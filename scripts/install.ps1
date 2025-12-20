@@ -15,25 +15,19 @@ $ExePath = Join-Path $InstallDir $BinaryName
 # --- 🗑️ UNINSTALL MODE ---
 if ($Uninstall) {
     Write-Host "🧹 Removing Meshtastic Engine..." -ForegroundColor Yellow
+    if (Test-Path $ExePath) { Remove-Item -Path $ExePath -Force }
 
-    # 1. Remove Binary
-    if (Test-Path $ExePath) {
-        Remove-Item -Path $ExePath -Force
-        Write-Host "✅ Binary removed: $ExePath" -ForegroundColor Green
-    } else {
-        Write-Host "ℹ️  Binary not found." -ForegroundColor DarkGray
-    }
-
-    # 2. Clean PATH
-    $CurrentPath = [Environment]::GetEnvironmentVariable("Path", "User")
+    # Clean MACHINE Path
+    $CurrentPath = [Environment]::GetEnvironmentVariable("Path", "Machine")
     if ($CurrentPath -like "*$InstallDir*") {
-        # Remove the install dir from path safely
         $NewPathParts = $CurrentPath -split ';' | Where-Object { $_ -ne $InstallDir -and $_ -ne "" }
         $NewPath = $NewPathParts -join ';'
-        [Environment]::SetEnvironmentVariable("Path", $NewPath, "User")
-        Write-Host "✅ Removed $InstallDir from System PATH." -ForegroundColor Green
+        [Environment]::SetEnvironmentVariable("Path", $NewPath, "Machine")
+        Write-Host "✅ Removed from System PATH." -ForegroundColor Green
     }
-
+    
+    # Restart Service to clear handles
+    Restart-Service "harbor-lighthouse" -ErrorAction SilentlyContinue
     return
 }
 
@@ -65,17 +59,13 @@ try {
 
 Unblock-File -Path $OutputPath
 
-# --- NEW: ADD TO PATH ---
-$CurrentPath = [Environment]::GetEnvironmentVariable("Path", "User")
-# Only add if it doesn't already exist
+# 3. ADD TO SYSTEM PATH (Crucial for Service Visibility)
+$CurrentPath = [Environment]::GetEnvironmentVariable("Path", "Machine")
 if ($CurrentPath -notlike "*$InstallDir*") {
-    Write-Host "🔗 Adding $InstallDir to User PATH..." -ForegroundColor Cyan
+    Write-Host "🔗 Adding to System PATH..." -ForegroundColor Cyan
     $NewPath = "$CurrentPath;$InstallDir"
-    [Environment]::SetEnvironmentVariable("Path", $NewPath, "User")
-    $Env:Path += ";$InstallDir" # Update current session temporarily
-    Write-Host "✅ PATH updated. You can now type '$BinaryName' anywhere." -ForegroundColor Green
-} else {
-    Write-Host "ℹ️  Path already configured." -ForegroundColor DarkGray
+    [Environment]::SetEnvironmentVariable("Path", $NewPath, "Machine")
+    $Env:Path += ";$InstallDir" # Update current session too
 }
 
 # 4. REGISTER WITH LIGHTHOUSE
