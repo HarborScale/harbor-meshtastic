@@ -1,4 +1,4 @@
-dearpygui==1.10.1
+dearpygui~=1.10
 pypubsub==4.0.3
 requests==2.32.3
 meshtastic>=2.5.0
