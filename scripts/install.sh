@@ -4,6 +4,7 @@
 REPO="HarborScale/harbor-meshtastic"
 INSTALL_DIR="/opt/harbor-lighthouse/plugins"
 BINARY_NAME="mesh_engine"
+VERSION="v0.0.3"
 
 # 1. CHECK LIGHTHOUSE
 if ! command -v lighthouse &> /dev/null; then
@@ -39,7 +40,7 @@ else
 fi
 
 # 3. GET LATEST URL
-LATEST_URL="https://github.com/$REPO/releases/latest/download/$ASSET"
+LATEST_URL="https://github.com/$REPO/releases/download/${VERSION}/$ASSET"
 
 # 4. INSTALLATION
 echo "📂 Creating plugin directory: $INSTALL_DIR"

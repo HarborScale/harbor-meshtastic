@@ -1,6 +1,8 @@
 param (
     [string]$HarborID,
-    [string]$ApiKey
+    [string]$ApiKey,
+    [string]$Version = "v0.0.3" # Default version
+
 )
 
 # --- CONFIG ---
@@ -24,7 +26,7 @@ if (-not (Test-Path $InstallDir)) {
 }
 
 # 3. DOWNLOAD
-$DownloadUrl = "https://github.com/$Repo/releases/latest/download/$Asset"
+$DownloadUrl = "https://github.com/$Repo/releases/download/$Version/$Asset"
 $OutputPath = Join-Path $InstallDir $BinaryName
 
 Write-Host "⬇️  Downloading Meshtastic Engine..."
