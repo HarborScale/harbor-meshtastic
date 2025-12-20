@@ -6,6 +6,24 @@ INSTALL_DIR="/opt/harbor-lighthouse/plugins"
 BINARY_NAME="mesh_engine"
 VERSION="v0.0.3"
 
+# --- 🗑️ UNINSTALL MODE (BINARY ONLY) ---
+if [ "$1" == "--uninstall" ]; then
+    echo "🧹 Removing Meshtastic Engine binary only..."
+
+    INSTALL_PATH="$INSTALL_DIR/$BINARY_NAME"
+
+    # 1. Remove the binary file only
+    if [ -f "$INSTALL_PATH" ]; then
+        sudo rm -f "$INSTALL_PATH"
+        echo "✅ Binary removed from $INSTALL_PATH"
+    else
+        echo "ℹ️  Binary not found (already removed?)"
+    fi
+
+    echo "✅ Uninstallation complete."
+    exit 0
+fi
+
 # 1. CHECK LIGHTHOUSE
 if ! command -v lighthouse &> /dev/null; then
     echo "❌ Error: Lighthouse is not installed."

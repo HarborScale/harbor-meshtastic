@@ -2,6 +2,8 @@ param (
     [string]$HarborID,
     [string]$ApiKey,
     [string]$Version = "v0.0.3" # Default version
+    [switch]$Uninstall
+
 
 )
 
@@ -11,6 +13,22 @@ $Repo = "HarborScale/harbor-meshtastic"
 $InstallDir = "C:\HarborLighthouse\Plugins"
 $BinaryName = "mesh_engine.exe"
 $Asset = "mesh_engine_windows_amd64.exe"
+$ExePath = Join-Path $InstallDir $BinaryName
+
+
+# --- 🗑️ UNINSTALL MODE (BINARY ONLY) ---
+if ($Uninstall) {
+    Write-Host "🧹 Removing Meshtastic Engine binary only..." -ForegroundColor Yellow
+
+    if (Test-Path $ExePath) {
+        Remove-Item -Path $ExePath -Force
+        Write-Host "✅ Binary removed: $ExePath" -ForegroundColor Green
+    } else {
+        Write-Host "ℹ️  Binary not found (already removed?)" -ForegroundColor DarkGray
+    }
+
+    return
+}
 
 # 1. CHECK LIGHTHOUSE
 if (-not (Get-Command "lighthouse" -ErrorAction SilentlyContinue)) {
