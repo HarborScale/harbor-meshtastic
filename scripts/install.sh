@@ -29,74 +29,51 @@ fi
 # 1. CHECK LIGHTHOUSE
 if ! command -v lighthouse &> /dev/null; then
     echo "❌ Error: Lighthouse is not installed."
-    echo "👉 Please run: curl -sL get.harborscale.com | sudo bash"
+    echo "👉 Run: curl -sL get.harborscale.com | sudo bash"
     exit 1
 fi
 
-# 2. DETECT OS & ARCH
+# 2. DETECT OS/ARCH & SET ASSET
 OS=$(uname -s)
 ARCH=$(uname -m)
 
 if [ "$OS" == "Linux" ]; then
-    if [ "$ARCH" == "x86_64" ]; then
-        ASSET="mesh_engine_linux_amd64"
-    elif [[ "$ARCH" == "aarch64" || "$ARCH" == "arm64" ]]; then
-        ASSET="mesh_engine_linux_arm64"
-    else
-        echo "❌ Unsupported Architecture: $ARCH"
-        exit 1
-    fi
+    if [ "$ARCH" == "x86_64" ]; then ASSET="mesh_engine_linux_amd64"
+    elif [[ "$ARCH" == "aarch64" || "$ARCH" == "arm64" ]]; then ASSET="mesh_engine_linux_arm64"
+    else echo "❌ Unsupported Architecture: $ARCH"; exit 1; fi
 elif [ "$OS" == "Darwin" ]; then
-    # Mac Support (Apple Silicon & Intel)
-    if [ "$ARCH" == "arm64" ]; then
-        ASSET="mesh_engine_darwin_arm64"
-    else
-        ASSET="mesh_engine_darwin_amd64"
-    fi
+    if [ "$ARCH" == "arm64" ]; then ASSET="mesh_engine_darwin_arm64"
+    else ASSET="mesh_engine_darwin_amd64"; fi
 else
-    echo "❌ Unsupported OS: $OS"
-    exit 1
+    echo "❌ Unsupported OS: $OS"; exit 1
 fi
 
-# 3. GET LATEST URL
-LATEST_URL="https://github.com/$REPO/releases/download/${VERSION}/$ASSET"
-
-# 4. INSTALLATION
-echo "📂 Creating plugin directory: $INSTALL_DIR"
-if [ ! -d "$INSTALL_DIR" ]; then
-    sudo mkdir -p $INSTALL_DIR
-    sudo chown $(id -u):$(id -g) $INSTALL_DIR
-fi
+# 3. INSTALLATION
+echo "📂 Ensuring plugin directory: $INSTALL_DIR"
+sudo mkdir -p $INSTALL_DIR
 
 echo "⬇️  Downloading $ASSET..."
-curl -L -o "$INSTALL_DIR/$BINARY_NAME" "$LATEST_URL"
-chmod +x "$INSTALL_DIR/$BINARY_NAME"
+LATEST_URL="https://github.com/$REPO/releases/download/${VERSION}/$ASSET"
+sudo curl -L -o "$INSTALL_DIR/$BINARY_NAME" "$LATEST_URL"
+sudo chmod +x "$INSTALL_DIR/$BINARY_NAME"
 
-# Remove Apple Quarantine if on Mac
+# Mac Quarantine Fix
 if [ "$OS" == "Darwin" ]; then
     xattr -d com.apple.quarantine "$INSTALL_DIR/$BINARY_NAME" 2>/dev/null || true
 fi
 
-# --- NEW: ADD TO PATH (Symlink) ---
 # 4. LINK TO PATH (CRITICAL STEP)
 echo "🔗 Linking binary to /usr/local/bin..."
 sudo ln -sf "$INSTALL_DIR/$BINARY_NAME" "$SYMLINK_PATH"
 
-# 5. REGISTER WITH LIGHTHOUSE
+# 5. REGISTER & RESTART
 HARBOR_ID=$1
 API_KEY=$2
 
 if [ -z "$HARBOR_ID" ] || [ -z "$API_KEY" ]; then
-    echo "✅ Installation Complete."
-    echo "👇 Run this command manually to finish setup:"
-    echo ""
-    echo "lighthouse --add \\"
-    echo "  --name \"Mesh-Gateway\" \\"
-    echo "  --source exec \\"
-    echo "  --param command=\"$BINARY_NAME --ttl 3600\" \\" # Note: Changed to use global bin name
-    echo "  --param timeout_ms=30000 \\"
-    echo "  --harbor-id \"YOUR_ID\" \\"
-    echo "  --key \"YOUR_KEY\""
+    echo "✅ Installed to PATH."
+    echo "👇 To configure manually:"
+    echo "lighthouse --add --name \"Mesh-Gateway\" --source exec --param command=\"$BINARY_NAME --ttl 3600\" --harbor-id \"ID\" --key \"KEY\""
 else
     echo "🚢 Registering with Lighthouse..."
     lighthouse --add \
@@ -106,6 +83,15 @@ else
       --param timeout_ms=30000 \
       --harbor-id "$HARBOR_ID" \
       --key "$API_KEY"
-
-    echo "✅ Success! Meshtastic Engine installed and running."
+    
+    # Restart is required for the service to see the new PATH/Symlink if it was just created
+    echo "♻️  Restarting Lighthouse Service..."
+    if [ "$OS" == "Linux" ]; then
+        sudo systemctl restart harbor-lighthouse
+    else
+        # Mac/Manual restart
+        echo "⚠️  Please restart your lighthouse service manually to pick up the new PATH."
+    fi
+    
+    echo "✅ Success!"
 fi
