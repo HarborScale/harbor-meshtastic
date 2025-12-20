@@ -7,22 +7,19 @@ BINARY_NAME="mesh_engine"
 VERSION="v0.0.3"
 SYMLINK_PATH="/usr/local/bin/$BINARY_NAME"
 
-# --- 🗑️ UNINSTALL MODE (BINARY ONLY) ---
+# --- 🗑️ UNINSTALL MODE ---
 if [ "$1" == "--uninstall" ]; then
     echo "🧹 Removing Meshtastic Engine binary..."
-
-    INSTALL_PATH="$INSTALL_DIR/$BINARY_NAME"
-
-    # 1. Remove the binary file
-    if [ -f "$INSTALL_PATH" ]; then
-        sudo rm -f "$INSTALL_PATH"
-        echo "✅ Binary removed from $INSTALL_PATH"
-    fi
     
-    # 2. Remove the Symlink (Clean up PATH)
-    if [ -L "$SYMLINK_PATH" ]; then
-        sudo rm -f "$SYMLINK_PATH"
-        echo "✅ Symlink removed from $SYMLINK_PATH"
+    # 1. Remove Files
+    sudo rm -f "$INSTALL_DIR/$BINARY_NAME"
+    sudo rm -f "$SYMLINK_PATH"
+    echo "✅ Binary and Symlink removed."
+
+    # 2. Restart Lighthouse to clear cache/handles
+    if systemctl is-active --quiet harbor-lighthouse; then
+        echo "♻️  Restarting Lighthouse service..."
+        sudo systemctl restart harbor-lighthouse
     fi
 
     echo "✅ Uninstallation complete."
@@ -81,13 +78,9 @@ if [ "$OS" == "Darwin" ]; then
 fi
 
 # --- NEW: ADD TO PATH (Symlink) ---
-echo "🔗 Linking binary to PATH..."
-# We force (-f) the link in case it already exists or updates
-if sudo ln -sf "$INSTALL_DIR/$BINARY_NAME" "$SYMLINK_PATH"; then
-    echo "✅ $BINARY_NAME is now available globally."
-else
-    echo "⚠️  Could not create symlink. You may need to run this with sudo."
-fi
+# 4. LINK TO PATH (CRITICAL STEP)
+echo "🔗 Linking binary to /usr/local/bin..."
+sudo ln -sf "$INSTALL_DIR/$BINARY_NAME" "$SYMLINK_PATH"
 
 # 5. REGISTER WITH LIGHTHOUSE
 HARBOR_ID=$1
