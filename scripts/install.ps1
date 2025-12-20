@@ -1,7 +1,7 @@
 param (
     [string]$HarborID,
     [string]$ApiKey,
-    [string]$Version = "v0.0.3" # Default version
+    [string]$Version = "v0.0.3", # Default version
     [switch]$Uninstall
 
 
