@@ -15,7 +15,7 @@ Unlike previous methods that required manual Python scripts, Lighthouse now hand
 Before starting, ensure you have:
 
 -   A **Meshtastic device** (e.g., LoRa ESP32, T-Beam, Rak WisBlock) connected via USB to your host computer.
--   **Harbor Lighthouse** installed on the host computer. (See [Installation Guide](/docs/lighthouse/)).
+-   **Harbor Lighthouse** installed on the host computer. (See [Installation Guide]([/docs/lighthouse/](https://docs.harborscale.com/docs/lighthouse))).
 -   A **Harbor Scale account** (Cloud) or a self-hosted instance.
 
 ## Architecture
