@@ -70,24 +70,25 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      # This action creates a virtual ARM environment
       - uses: uraimo/run-on-arch-action@v2
         name: Build inside ARM Container
         with:
           arch: aarch64
-          distro: python3.10
+          distro: ubuntu22.04   
           githubToken: ${{ github.token }}
           
-          # Install dependencies inside the virtual ARM system
+          # Install Python & Dependencies manually since we are in a raw Ubuntu container
           install: |
-            pip install -r requirements.txt
-            pip install pyinstaller
+            apt-get update
+            apt-get install -y python3 python3-pip
+            pip3 install -r requirements.txt
+            pip3 install pyinstaller
             
-          # Build the binary inside the virtual ARM system
           run: |
-            pyinstaller --onefile --name mesh_engine main.py
+            # In Ubuntu, python might be called python3
+            python3 -m PyInstaller --onefile --name mesh_engine main.py
             
-            # Rename it inside the container so it's ready for upload
+            # Rename it inside the container
             mv dist/mesh_engine dist/mesh_engine_linux_arm64
 
       - name: Upload ARM Asset
