@@ -86,14 +86,17 @@ jobs:
           # 2. Project Install & Build (Requires source code)
           # These run inside your repo folder, so 'requirements.txt' will be found.
           run: |
-            # Install your project dependencies
-            pip3 install -r requirements.txt
+            # 1. Create a new requirements file that excludes 'dearpygui'
+            grep -v "dearpygui" requirements.txt > requirements_headless.txt
+            
+            # 2. Install from the CLEAN file
+            pip3 install -r requirements_headless.txt
             pip3 install pyinstaller
             
-            # Build the binary
+            # 3. Build the binary
             python3 -m PyInstaller --onefile --name mesh_engine main.py
             
-            # Rename for release
+            # 4. Rename for release
             mv dist/mesh_engine dist/mesh_engine_linux_arm64
 
       - name: Upload ARM Asset
