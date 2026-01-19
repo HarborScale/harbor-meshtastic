@@ -6,13 +6,16 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  # ---------------------------------------------------
+  # JOB 1: Standard Builds (Windows, Mac, Linux x86)
+  # ---------------------------------------------------
+  build_core:
     name: Build for ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
-          # Linux AMD64
+          # Linux AMD64 (Standard Servers/PC)
           - os: ubuntu-latest
             artifact_name: mesh_engine
             asset_name: mesh_engine_linux_amd64
@@ -38,6 +41,7 @@ jobs:
     - name: Install Dependencies
       run: |
         pip install -r requirements.txt
+        pip install pyinstaller
 
     - name: Build with PyInstaller
       run: |
@@ -56,3 +60,40 @@ jobs:
         files: dist/${{ matrix.asset_name }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ---------------------------------------------------
+  # JOB 2: Raspberry Pi Build (Linux ARM64)
+  # ---------------------------------------------------
+  build_arm:
+    name: Build for Linux ARM64 (Pi)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      # This action creates a virtual ARM environment
+      - uses: uraimo/run-on-arch-action@v2
+        name: Build inside ARM Container
+        with:
+          arch: aarch64
+          distro: python3.10
+          githubToken: ${{ github.token }}
+          
+          # Install dependencies inside the virtual ARM system
+          install: |
+            pip install -r requirements.txt
+            pip install pyinstaller
+            
+          # Build the binary inside the virtual ARM system
+          run: |
+            pyinstaller --onefile --name mesh_engine main.py
+            
+            # Rename it inside the container so it's ready for upload
+            mv dist/mesh_engine dist/mesh_engine_linux_arm64
+
+      - name: Upload ARM Asset
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: dist/mesh_engine_linux_arm64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
