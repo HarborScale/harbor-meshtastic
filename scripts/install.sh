@@ -4,7 +4,7 @@
 REPO="HarborScale/harbor-meshtastic"
 INSTALL_DIR="/opt/harbor-lighthouse/plugins"
 BINARY_NAME="mesh_engine"
-VERSION="v0.0.3"
+VERSION="v0.0.4"
 SYMLINK_PATH="/usr/local/bin/$BINARY_NAME"
 
 # --- 🗑️ UNINSTALL MODE ---
