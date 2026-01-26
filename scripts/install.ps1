@@ -2,7 +2,7 @@
 param (
     [string]$HarborID,
     [string]$ApiKey,
-    [string]$Version = "v0.0.4",
+    [string]$Version = "v0.0.5",
     [switch]$Uninstall
 )
 
