@@ -7,18 +7,30 @@ BINARY_NAME="mesh_engine"
 VERSION="v0.0.5"
 SYMLINK_PATH="/usr/local/bin/$BINARY_NAME"
 
+# --- 📢 VERBOSE BANNER ---
+echo "=================================================="
+echo "📦 Harbor Meshtastic Engine Installer"
+echo "🔖 Target Version: $VERSION"
+echo "📂 Install Path:   $INSTALL_DIR"
+echo "=================================================="
+
 # --- 🗑️ UNINSTALL MODE ---
 if [ "$1" == "--uninstall" ]; then
-    echo "🧹 Removing Meshtastic Engine binary..."
-    
-    # 1. Remove Files
-    sudo rm -f "$INSTALL_DIR/$BINARY_NAME"
-    sudo rm -f "$SYMLINK_PATH"
-    echo "✅ Binary and Symlink removed."
+    echo "🧹 Uninstalling..."
 
-    # 2. Restart Lighthouse to clear cache/handles
+    # 1. Remove Files
+    if [ -f "$INSTALL_DIR/$BINARY_NAME" ]; then
+        sudo rm -f "$INSTALL_DIR/$BINARY_NAME"
+        echo "   - Removed binary file."
+    fi
+    if [ -L "$SYMLINK_PATH" ]; then
+        sudo rm -f "$SYMLINK_PATH"
+        echo "   - Removed symlink."
+    fi
+
+    # 2. Restart Lighthouse
     if systemctl is-active --quiet harbor-lighthouse; then
-        echo "♻️  Restarting Lighthouse service..."
+        echo "♻️  Restarting Lighthouse to flush cache..."
         sudo systemctl restart harbor-lighthouse
     fi
 
@@ -27,15 +39,18 @@ if [ "$1" == "--uninstall" ]; then
 fi
 
 # 1. CHECK LIGHTHOUSE
+echo "🔍 Checking for Lighthouse..."
 if ! command -v lighthouse &> /dev/null; then
     echo "❌ Error: Lighthouse is not installed."
     echo "👉 Run: curl -sL get.harborscale.com | sudo bash"
     exit 1
 fi
+echo "   - Lighthouse found."
 
-# 2. DETECT OS/ARCH & SET ASSET
+# 2. DETECT OS/ARCH
 OS=$(uname -s)
 ARCH=$(uname -m)
+echo "🖥️  Detected System: $OS ($ARCH)"
 
 if [ "$OS" == "Linux" ]; then
     if [ "$ARCH" == "x86_64" ]; then ASSET="mesh_engine_linux_amd64"
@@ -47,14 +62,22 @@ elif [ "$OS" == "Darwin" ]; then
 else
     echo "❌ Unsupported OS: $OS"; exit 1
 fi
+echo "   - Selected Asset: $ASSET"
 
 # 3. INSTALLATION
-echo "📂 Ensuring plugin directory: $INSTALL_DIR"
+echo "📂 Ensuring plugin directory exists..."
 sudo mkdir -p $INSTALL_DIR
 
-echo "⬇️  Downloading $ASSET..."
+echo "⬇️  Downloading version $VERSION..."
 LATEST_URL="https://github.com/$REPO/releases/download/${VERSION}/$ASSET"
-sudo curl -L -o "$INSTALL_DIR/$BINARY_NAME" "$LATEST_URL"
+# We use -f to fail silently on server errors so we can catch them
+if sudo curl -L -f -o "$INSTALL_DIR/$BINARY_NAME" "$LATEST_URL"; then
+    echo "   - Download complete."
+else
+    echo "❌ Download Failed! Check your internet or if version $VERSION exists."
+    exit 1
+fi
+
 sudo chmod +x "$INSTALL_DIR/$BINARY_NAME"
 
 # Mac Quarantine Fix
@@ -62,19 +85,15 @@ if [ "$OS" == "Darwin" ]; then
     xattr -d com.apple.quarantine "$INSTALL_DIR/$BINARY_NAME" 2>/dev/null || true
 fi
 
-# 4. LINK TO PATH (CRITICAL STEP)
-echo "🔗 Linking binary to /usr/local/bin..."
+# 4. LINK TO PATH
+echo "🔗 Linking binary to $SYMLINK_PATH..."
 sudo ln -sf "$INSTALL_DIR/$BINARY_NAME" "$SYMLINK_PATH"
 
-# 5. REGISTER & RESTART
+# 5. REGISTER (Optional)
 HARBOR_ID=$1
 API_KEY=$2
 
-if [ -z "$HARBOR_ID" ] || [ -z "$API_KEY" ]; then
-    echo "✅ Installed to PATH."
-    echo "👇 To configure manually:"
-    echo "lighthouse --add --name \"Mesh-Gateway\" --source exec --param command=\"$BINARY_NAME --ttl 3600\" --harbor-id \"ID\" --key \"KEY\""
-else
+if [ -n "$HARBOR_ID" ] && [ -n "$API_KEY" ]; then
     echo "🚢 Registering with Lighthouse..."
     lighthouse --add \
       --name "Mesh-Gateway" \
@@ -83,15 +102,19 @@ else
       --param timeout_ms=30000 \
       --harbor-id "$HARBOR_ID" \
       --key "$API_KEY"
-    
-    # Restart is required for the service to see the new PATH/Symlink if it was just created
-    echo "♻️  Restarting Lighthouse Service..."
-    if [ "$OS" == "Linux" ]; then
-        sudo systemctl restart harbor-lighthouse
-    else
-        # Mac/Manual restart
-        echo "⚠️  Please restart your lighthouse service manually to pick up the new PATH."
-    fi
-    
-    echo "✅ Success!"
+else
+    echo "ℹ️  Update mode (No new keys provided)."
+    echo "   - Keeping existing configuration."
 fi
+
+# 6. RESTART SERVICE
+echo "♻️  Restarting Lighthouse Service to apply changes..."
+if [ "$OS" == "Linux" ]; then
+    sudo systemctl restart harbor-lighthouse || echo "⚠️  Service not running, skipping restart."
+else
+    echo "⚠️  (MacOS) Please restart your lighthouse service manually."
+fi
+
+echo "=================================================="
+echo "✅ Success! Version $VERSION is now active."
+echo "=================================================="

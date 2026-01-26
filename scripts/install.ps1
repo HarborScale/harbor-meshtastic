@@ -13,20 +13,30 @@ $BinaryName = "mesh_engine.exe"
 $Asset = "mesh_engine_windows_amd64.exe"
 $ExePath = Join-Path $InstallDir $BinaryName
 
-# Check Admin (Required for Machine PATH)
+# --- 📢 VERBOSE BANNER ---
+Write-Host "==================================================" -ForegroundColor Cyan
+Write-Host "📦 Harbor Meshtastic Engine Installer" -ForegroundColor Cyan
+Write-Host "🔖 Target Version: $Version" -ForegroundColor Gray
+Write-Host "📂 Install Path:   $InstallDir" -ForegroundColor Gray
+Write-Host "==================================================" -ForegroundColor Cyan
+
+# Check Admin
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]"Administrator")) {
-    Write-Warning "❌ You must run this script as Administrator to update System PATH."
+    Write-Warning "❌ Error: Please run as Administrator."
     exit 1
 }
 
-# --- STOP SERVICE BEFORE UPDATE ---
-Write-Host "🛑 Stopping service to release file lock..."
+# --- STOP SERVICE ---
+Write-Host "🛑 Stopping 'harbor-lighthouse' service to release file locks..." -ForegroundColor Yellow
 Stop-Service "harbor-lighthouse" -ErrorAction SilentlyContinue
 
 # --- 🗑️ UNINSTALL MODE ---
 if ($Uninstall) {
-    Write-Host "🧹 Removing Meshtastic Engine..." -ForegroundColor Yellow
-    if (Test-Path $ExePath) { Remove-Item -Path $ExePath -Force }
+    Write-Host "🧹 Uninstalling..." -ForegroundColor Yellow
+    if (Test-Path $ExePath) {
+        Remove-Item -Path $ExePath -Force
+        Write-Host "   - Removed binary file." -ForegroundColor Gray
+    }
 
     # Clean MACHINE Path
     $CurrentPath = [Environment]::GetEnvironmentVariable("Path", "Machine")
@@ -34,44 +44,51 @@ if ($Uninstall) {
         $NewPathParts = $CurrentPath -split ';' | Where-Object { $_ -ne $InstallDir -and $_ -ne "" }
         $NewPath = $NewPathParts -join ';'
         [Environment]::SetEnvironmentVariable("Path", $NewPath, "Machine")
-        Write-Host "✅ Removed from System PATH." -ForegroundColor Green
+        Write-Host "   - Removed from System PATH." -ForegroundColor Gray
     }
 
-    # Restart Service (Cleanup complete)
-    Write-Host "♻️  Restarting Lighthouse Service..."
+    # Restart Service
+    Write-Host "♻️  Restarting Lighthouse Service..." -ForegroundColor Yellow
     Start-Service "harbor-lighthouse" -ErrorAction SilentlyContinue
+    Write-Host "✅ Uninstallation complete." -ForegroundColor Green
     return
 }
 
 # 1. SETUP
-if (-not (Test-Path $InstallDir)) { New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null }
+if (-not (Test-Path $InstallDir)) {
+    New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
+    Write-Host "   - Created directory $InstallDir" -ForegroundColor Gray
+}
 
 # 2. DOWNLOAD
 $DownloadUrl = "https://github.com/$Repo/releases/download/$Version/$Asset"
-Write-Host "⬇️  Downloading..."
+Write-Host "⬇️  Downloading version $Version..." -ForegroundColor Cyan
 try {
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     Invoke-WebRequest -Uri $DownloadUrl -OutFile $ExePath
+    Write-Host "   - Download complete." -ForegroundColor Gray
 } catch {
     Write-Host "❌ Download Failed: $_" -ForegroundColor Red
-    # Try to restart service before crashing so we don't leave them broken
+    Write-Host "   - Restoring service before exit..." -ForegroundColor Gray
     Start-Service "harbor-lighthouse" -ErrorAction SilentlyContinue
     exit 1
 }
 Unblock-File -Path $ExePath
 
-# 3. ADD TO SYSTEM PATH (Crucial for Service Visibility)
+# 3. ADD TO SYSTEM PATH
 $CurrentPath = [Environment]::GetEnvironmentVariable("Path", "Machine")
 if ($CurrentPath -notlike "*$InstallDir*") {
     Write-Host "🔗 Adding to System PATH..." -ForegroundColor Cyan
     $NewPath = "$CurrentPath;$InstallDir"
     [Environment]::SetEnvironmentVariable("Path", $NewPath, "Machine")
-    $Env:Path += ";$InstallDir" # Update current session too
+    $Env:Path += ";$InstallDir"
+} else {
+    Write-Host "   - System PATH already configured." -ForegroundColor Gray
 }
 
-# 4. REGISTER (Optional)
+# 4. REGISTER
 if ($HarborID -and $ApiKey) {
-    Write-Host "🚢 Registering..."
+    Write-Host "🚢 Registering new configuration with Lighthouse..." -ForegroundColor Cyan
     lighthouse --add `
       --name "Mesh-Gateway" `
       --source exec `
@@ -80,12 +97,13 @@ if ($HarborID -and $ApiKey) {
       --harbor-id "$HarborID" `
       --key "$ApiKey"
 } else {
-    Write-Host "✅ Installed. Run 'lighthouse --add ...' to finish." -ForegroundColor Green
+    Write-Host "ℹ️  Update mode (No new keys provided). Keeping existing config." -ForegroundColor Gray
 }
 
-
-# 5. RESTART SERVICE (Always do this at the end)
-Write-Host "♻️  Restarting Lighthouse Service..." -ForegroundColor Yellow
+# 5. RESTART SERVICE
+Write-Host "♻️  Restarting Lighthouse Service to apply $Version..." -ForegroundColor Yellow
 Start-Service "harbor-lighthouse" -ErrorAction SilentlyContinue
 
-Write-Host "✅ Success! Service is running." -ForegroundColor Green
+Write-Host "==================================================" -ForegroundColor Green
+Write-Host "✅ Success! Version $Version is now active." -ForegroundColor Green
+Write-Host "==================================================" -ForegroundColor Green
