@@ -1,6 +1,6 @@
 dearpygui~=1.10
 pypubsub==4.0.3
 requests==2.32.3
-meshtastic>=2.5.0
+meshtastic>=2.7.7
 pyserial>=3.5
 pyinstaller>=6.3.0

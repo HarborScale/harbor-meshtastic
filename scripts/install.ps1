@@ -19,6 +19,10 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
     exit 1
 }
 
+# --- STOP SERVICE BEFORE UPDATE ---
+Write-Host "🛑 Stopping service to release file lock..."
+Stop-Service "harbor-lighthouse" -ErrorAction SilentlyContinue
+
 # --- 🗑️ UNINSTALL MODE ---
 if ($Uninstall) {
     Write-Host "🧹 Removing Meshtastic Engine..." -ForegroundColor Yellow
@@ -32,9 +36,10 @@ if ($Uninstall) {
         [Environment]::SetEnvironmentVariable("Path", $NewPath, "Machine")
         Write-Host "✅ Removed from System PATH." -ForegroundColor Green
     }
-    
-    # Restart Service to clear handles
-    Restart-Service "harbor-lighthouse" -ErrorAction SilentlyContinue
+
+    # Restart Service (Cleanup complete)
+    Write-Host "♻️  Restarting Lighthouse Service..."
+    Start-Service "harbor-lighthouse" -ErrorAction SilentlyContinue
     return
 }
 
@@ -48,7 +53,10 @@ try {
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     Invoke-WebRequest -Uri $DownloadUrl -OutFile $ExePath
 } catch {
-    Write-Host "❌ Download Failed: $_" -ForegroundColor Red; exit 1
+    Write-Host "❌ Download Failed: $_" -ForegroundColor Red
+    # Try to restart service before crashing so we don't leave them broken
+    Start-Service "harbor-lighthouse" -ErrorAction SilentlyContinue
+    exit 1
 }
 Unblock-File -Path $ExePath
 
@@ -61,7 +69,7 @@ if ($CurrentPath -notlike "*$InstallDir*") {
     $Env:Path += ";$InstallDir" # Update current session too
 }
 
-# 4. REGISTER & RESTART
+# 4. REGISTER (Optional)
 if ($HarborID -and $ApiKey) {
     Write-Host "🚢 Registering..."
     lighthouse --add `
@@ -71,11 +79,13 @@ if ($HarborID -and $ApiKey) {
       --param timeout_ms=30000 `
       --harbor-id "$HarborID" `
       --key "$ApiKey"
-
-    Write-Host "♻️  Restarting Lighthouse Service (to apply PATH)..." -ForegroundColor Yellow
-    Restart-Service "harbor-lighthouse"
-    
-    Write-Host "✅ Success! Service is running." -ForegroundColor Green
 } else {
     Write-Host "✅ Installed. Run 'lighthouse --add ...' to finish." -ForegroundColor Green
 }
+
+
+# 5. RESTART SERVICE (Always do this at the end)
+Write-Host "♻️  Restarting Lighthouse Service..." -ForegroundColor Yellow
+Start-Service "harbor-lighthouse" -ErrorAction SilentlyContinue
+
+Write-Host "✅ Success! Service is running." -ForegroundColor Green
