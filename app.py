@@ -443,9 +443,9 @@ def create_gui(app_instance):
     dpg.create_context()
 
     with dpg.window(
-        label="Meshtastic Telemetry Harbor Integration", tag="primary_window"
+        label="Meshtastic Harbor Scale Integration", tag="primary_window"
     ):
-        dpg.add_text("Meshtastic Telemetry Harbor Integration")
+        dpg.add_text("Meshtastic Harbor Scale Integration")
         dpg.add_separator()
 
         with dpg.collapsing_header(label="Connection Settings", default_open=True):
