@@ -43,6 +43,27 @@ jobs:
         pip install -r requirements.txt
         pip install pyinstaller
 
+    # --- INJECT VERSION ---
+    - name: Inject Version Tag
+      shell: bash
+      run: |
+        # Use Python to replace the placeholder safely on all OSes
+        python -c "
+        import os
+        tag = '${{ github.ref_name }}'
+        # Fallback if running manually without a tag
+        if not tag: tag = 'manual_build'
+
+        with open('main.py', 'r') as f:
+            content = f.read()
+
+        content = content.replace('VERSION = \"DEV_BUILD\"', f'VERSION = \"{tag}\"')
+
+        with open('main.py', 'w') as f:
+            f.write(content)
+        "
+        echo "✅ Version injected: ${{ github.ref_name }}"
+
     - name: Build with PyInstaller
       run: |
         pyinstaller --onefile --name ${{ matrix.artifact_name }} main.py
@@ -61,14 +82,14 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-# ---------------------------------------------------
+  # ---------------------------------------------------
   # JOB 2: Raspberry Pi Build (Linux ARM64)
   # ---------------------------------------------------
   build_arm:
     name: Build for Linux ARM64 (Pi)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4 # Updated to v4 for good measure
+      - uses: actions/checkout@v4
 
       - uses: uraimo/run-on-arch-action@v2
         name: Build inside ARM Container
@@ -76,27 +97,27 @@ jobs:
           arch: aarch64
           distro: ubuntu22.04
           githubToken: ${{ github.token }}
-          
+
           # 1. System Install (Global tools only)
           # These run blindly in the system, so they are fine here.
           install: |
             apt-get update
             apt-get install -y python3 python3-pip
 
-          # 2. Project Install & Build (Requires source code)
-          # These run inside your repo folder, so 'requirements.txt' will be found.
+          # We inject the variable directly into the shell script here
           run: |
-            # 1. Create a new requirements file that excludes 'dearpygui'
+            # 1. Clean requirements
             grep -v "dearpygui" requirements.txt > requirements_headless.txt
-            
-            # 2. Install from the CLEAN file
+
+            # 2. Inject Version (Using sed is safe here because this is strictly Linux/Ubuntu)
+            sed -i "s/VERSION = \"DEV_BUILD\"/VERSION = \"${{ github.ref_name }}\"/" main.py
+
+            # 3. Install & Build
             pip3 install -r requirements_headless.txt
             pip3 install pyinstaller
-            
-            # 3. Build the binary
             python3 -m PyInstaller --onefile --name mesh_engine main.py
-            
-            # 4. Rename for release
+
+            # 4. Rename
             mv dist/mesh_engine dist/mesh_engine_linux_arm64
 
       - name: Upload ARM Asset

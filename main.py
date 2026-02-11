@@ -7,7 +7,7 @@ from datetime import datetime
 import meshtastic.serial_interface
 import meshtastic.tcp_interface
 from meshtastic import portnums_pb2
-
+VERSION = "DEV_BUILD"
 # --- CONFIGURATION ---
 # Silence the noisy Meshtastic library (it loves to print to stdout)
 logging.basicConfig(level=logging.CRITICAL)
@@ -146,6 +146,9 @@ def main():
 
     interface = None
     try:
+        if args.version:
+            print(VERSION)
+            return
         # Check Host first, then Port, then Auto-detect
         if args.host:
             log_err(f"Connecting to TCP Host {args.host}...")
