@@ -5,6 +5,7 @@ import logging
 import argparse
 from datetime import datetime
 import meshtastic.serial_interface
+import meshtastic.tcp_interface
 from meshtastic import portnums_pb2
 
 # --- CONFIGURATION ---
@@ -138,16 +139,19 @@ def normalize_metrics(node_id, node):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--ttl", type=int, default=3600, help="Ignore nodes not heard in X seconds (Default: 1 hour)")
-    parser.add_argument("--port", type=str, default=None, help="Force specific COM port")
+    parser.add_argument("--ttl", type=int, default=3600, help="Ignore nodes not heard in X seconds")
+    parser.add_argument("--port", type=str, default=None, help="Force specific COM port (Serial)")
+    parser.add_argument("--host", type=str, default=None, help="Connect via TCP to IP/Hostname (Overrules Serial)")
     args = parser.parse_args()
 
     interface = None
     try:
-        # Auto-discovery logic handled by the library if port is None
-        # We suppress stdout because the library prints "Connected to..."
-        if args.port:
-            log_err(f"Connecting to {args.port}...")
+        # Check Host first, then Port, then Auto-detect
+        if args.host:
+            log_err(f"Connecting to TCP Host {args.host}...")
+            interface = meshtastic.tcp_interface.TCPInterface(hostname=args.host)
+        elif args.port:
+            log_err(f"Connecting to Serial Port {args.port}...")
             interface = meshtastic.serial_interface.SerialInterface(args.port)
         else:
             log_err("Auto-detecting Meshtastic radio...")
